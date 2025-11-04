@@ -20,7 +20,9 @@ auto sphere = [](Point center, double r) {
   };
 };
 
-void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSteps, int nWalkers = 10000, std::string outputDir = "data") {
+void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSteps,
+              bool snap = false, int nWalkers = 10000, std::string outputDir = "data") {
+
   Point walkers[nWalkers];
   for (int w = 0; w < nWalkers; ++w) {
     walkers[w] = startingPoint;
@@ -30,7 +32,8 @@ void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSt
   std::mt19937 rng(dev());
   std::uniform_int_distribution<std::mt19937::result_type> dist(0,5); // distribution in range [0,5]
 
-  std::filesystem::create_directory(outputDir);
+  // create output directory recursively
+  std::filesystem::create_directories(outputDir);
   std::ofstream fout;
   for (int step = 0; step < nSteps; ++step) {
     if ((step) % 10 == 0) {
@@ -58,6 +61,9 @@ void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSt
 
       // project back to the surface
       walkers[w] = surf.project(walkers[w]);
+
+      // optionally, snap to nearest point
+      walkers[w] = surf.snap(walkers[w]);
     }
     fout.close();
   }
@@ -75,8 +81,9 @@ void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSt
 
 
 // Default parameters
-double STEP_SIZE = 0.5;
-int N_STEPS = 1000;
+double STEP_SIZE = 2;
+int N_STEPS = 10000;
+bool SNAP = true;
 int N_WALKERS = 10000;
 double GRID_H = 0.06;
 
@@ -88,6 +95,7 @@ int main(int argc, char** argv) {
       std::cout << "Usage: " << argv[0] << " [STEP_SIZE] [N_STEPS] [N_WALKERS] [GRID_H]\n";
       std::cout << "  STEP_SIZE: Size of each step (default: 0.5)\n";
       std::cout << "  N_STEPS:   Number of steps for each walker (default: 1000)\n";
+      std::cout << "  SNAP:      Whether to snap to surface or not (default: false)\n";
       std::cout << "  N_WALKERS: Number of walkers to simulate (default: 10000)\n";
       std::cout << "  GRID_H:    Grid spacing for surface construction (default: 0.06)\n";
       return 0;
@@ -96,9 +104,12 @@ int main(int argc, char** argv) {
   // Parse command line arguments
   if (argc > 1) STEP_SIZE = std::stod(argv[1]);
   if (argc > 2) N_STEPS = std::stoi(argv[2]);
-  if (argc > 3) N_WALKERS = std::stoi(argv[3]);
-  if (argc > 4) GRID_H = std::stod(argv[4]);
+  if (argc > 3) SNAP = std::stoi(argv[3]);
+  if (argc > 4) N_WALKERS = std::stoi(argv[4]);
+  if (argc > 5) GRID_H = std::stod(argv[5]);
 
+  for (double size = 0.1; size <= STEP_SIZE; size += 0.1) {
+    std::cout << "Running simulation with step size: " << size << "\n";
   // Define the domain and grid spacing
   Interval x = {0,10};
   Interval y = {0,10};
@@ -108,9 +119,15 @@ int main(int argc, char** argv) {
   std::cout << "Surface created with " << surf.nPoints() << " points.\n";
 
   Point right = {9.5, 5, 5};
-  std::string outputDir = "data/stepSize=" + to_string2(STEP_SIZE) + "_nWalkers=" + std::to_string(N_WALKERS);
+    
+    std::string outputDir;
+    if (SNAP) 
+      outputDir = "data/snap/stepSize=" + to_string2(size) + "_nWalkers=" + std::to_string(N_WALKERS);
+    else
+      outputDir = "data/nosnap/stepSize=" + to_string2(size) + "_nWalkers=" + std::to_string(N_WALKERS);
   
-  simulate(surf, right, STEP_SIZE, N_STEPS, N_WALKERS, outputDir);
+    simulate(surf, right, size, N_STEPS, SNAP, N_WALKERS, outputDir);
+  }
 
   return 0;
 }
