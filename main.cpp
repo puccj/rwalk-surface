@@ -2,8 +2,17 @@
 #include <iostream>
 #include <functional>
 #include <fstream>
+#include <random>
+#include <filesystem>
 
 #include "surface.h"
+
+//convert double to string with 2 decimal places
+auto to_string2 = [](double value) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(2) << value;
+  return out.str();
+};
 
 auto sphere = [](Point center, double r) {
   return [=](double x, double y, double z) {
@@ -11,12 +20,85 @@ auto sphere = [](Point center, double r) {
   };
 };
 
-int N_WALKERS = 200;
-int N_STEPS = 15000;
+void simulate(Surface const& surf, Point startingPoint, double stepSize, int nSteps, int nWalkers = 10000, std::string outputDir = "data") {
+  Point walkers[nWalkers];
+  for (int w = 0; w < nWalkers; ++w) {
+    walkers[w] = startingPoint;
+  }
+
+  std::random_device dev;
+  std::mt19937 rng(dev());
+  std::uniform_int_distribution<std::mt19937::result_type> dist(0,5); // distribution in range [0,5]
+
+  std::filesystem::create_directory(outputDir);
+  std::ofstream fout;
+  for (int step = 0; step < nSteps; ++step) {
+    if ((step) % 10 == 0) {
+      std::string filename = outputDir + "/step" + std::to_string(step) + ".dat";
+      fout.open(filename);
+    }
+
+    for (int w = 0; w < nWalkers; ++w) {
+      // chose a random direction (up, down, left, right, forward, backward)
+      int direction = dist(rng);
+      
+      // log position every 10 steps
+      if (step % 10 == 0) {
+        fout << walkers[w] << '\n';
+      }
+
+      switch(direction) {
+        case 0: walkers[w].x += stepSize; break; //right
+        case 1: walkers[w].x -= stepSize; break; //left
+        case 2: walkers[w].y += stepSize; break; //up
+        case 3: walkers[w].y -= stepSize; break; //down
+        case 4: walkers[w].z += stepSize; break; //forward
+        case 5: walkers[w].z -= stepSize; break; //backward
+      }
+
+      // project back to the surface
+      walkers[w] = surf.project(walkers[w]);
+    }
+    fout.close();
+  }
+
+  // Log a final time
+  std::string filename = "stepsize=" + to_string2(stepSize) + "_step" + std::to_string(nSteps) + ".dat";
+  fout.open(filename);
+  for (int w = 0; w < nWalkers; ++w) {
+    fout << walkers[w] << '\n';
+  }
+  fout.close();
+
+  std::cout << "Simulation completed: " << nWalkers << " walkers, " << nSteps << " steps each, step size " << stepSize << ".\n";
+}
+
+
+// Default parameters
 double STEP_SIZE = 0.5;
+int N_STEPS = 1000;
+int N_WALKERS = 10000;
 double GRID_H = 0.06;
 
-int main() {
+int main(int argc, char** argv) {
+  // Show help message
+  for (int i = 1; i < argc; ++i) {
+    std::string arg = argv[i];
+    if (arg == "-h" || arg == "--help") {
+      std::cout << "Usage: " << argv[0] << " [STEP_SIZE] [N_STEPS] [N_WALKERS] [GRID_H]\n";
+      std::cout << "  STEP_SIZE: Size of each step (default: 0.5)\n";
+      std::cout << "  N_STEPS:   Number of steps for each walker (default: 1000)\n";
+      std::cout << "  N_WALKERS: Number of walkers to simulate (default: 10000)\n";
+      std::cout << "  GRID_H:    Grid spacing for surface construction (default: 0.06)\n";
+      return 0;
+    }
+  }
+  // Parse command line arguments
+  if (argc > 1) STEP_SIZE = std::stod(argv[1]);
+  if (argc > 2) N_STEPS = std::stoi(argv[2]);
+  if (argc > 3) N_WALKERS = std::stoi(argv[3]);
+  if (argc > 4) GRID_H = std::stod(argv[4]);
+
   // Define the domain and grid spacing
   Interval x = {0,10};
   Interval y = {0,10};
@@ -24,49 +106,11 @@ int main() {
 
   Surface surf = Surface(sphere({5,5,5}, 4.5), x, y, z, GRID_H);
   std::cout << "Surface created with " << surf.nPoints() << " points.\n";
-  Point final_pos[N_WALKERS];
 
-  for (int walker = 0; walker < N_WALKERS; ++walker) {
-    // Simulate a random walk on the surface
-    Point current = {5,0.5,5}; //start point
-    // std::cout << "Debug: Starting point: " << current << '\n';
-    // current = surf.project(current);
-    // std::cout << "Debug: Projected starting point: " << current << '\n';
-
-    for (int step = 0; step < N_STEPS; ++step) {
-      // chose a random direction (up, down, left, right, forward, backward)
-      int direction = rand() % 6;
-      Point next = current;
-      switch(direction) {
-        case 0: next.x += STEP_SIZE; break; //right
-        case 1: next.x -= STEP_SIZE; break; //left
-        case 2: next.y += STEP_SIZE; break; //up
-        case 3: next.y -= STEP_SIZE; break; //down
-        case 4: next.z += STEP_SIZE; break; //forward
-        case 5: next.z -= STEP_SIZE; break; //backward
-      }
-      // std::cout << "Debug: Chosen direction: " << direction << ", next point before projection: " << next << '\n';
-
-      // project back to the surface
-      next = surf.project(next);
-      // std::cout << "Debug: Projected point: " << next << '\n';
-      
-      current = next;
-    }
-
-    final_pos[walker] = current;
-  }
-
-  std::cout << "Simulation completed.\n";
-
-  // save final positions to file
-  std::ofstream fout("final_positions.dat");
-  for (int i = 0; i < N_WALKERS; ++i) {
-    fout << final_pos[i] << '\n';
-  }
-  fout.close();
-
-  std::cout << "Final positions saved.\n";
+  Point right = {9.5, 5, 5};
+  std::string outputDir = "data/stepSize=" + to_string2(STEP_SIZE) + "_nWalkers=" + std::to_string(N_WALKERS);
+  
+  simulate(surf, right, STEP_SIZE, N_STEPS, N_WALKERS, outputDir);
 
   return 0;
 }

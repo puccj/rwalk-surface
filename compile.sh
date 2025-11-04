@@ -1,0 +1,1 @@
+g++ main.cpp surface.cpp -o rwalk-surface.out -O3 -std=c++17

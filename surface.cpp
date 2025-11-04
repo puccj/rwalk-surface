@@ -92,7 +92,7 @@ Surface::~Surface() {
   delete[] _data;
 }
 
-Point Surface::project(Point p) {
+Point Surface::project(Point p) const {
   if (_phi == nullptr || _h == 0) {
     throw std::runtime_error("Surface::project: phi function or h not defined. "
       "The surface needs to be constructed using a function to use project method.");
@@ -122,7 +122,7 @@ Point Surface::project(Point p) {
   return p;
 }
 
-Point Surface::snap(Point p) {
+Point Surface::snap(Point p) const {
   if (_nPoints == 0) {
     throw std::runtime_error("Surface::snap: surface has no points.");
   }

@@ -44,10 +44,10 @@ class Surface {
   Point operator[](int index) const { return _data[index]; };
 
   // Project point p onto the surface using the phi function provided at construction
-  Point project(Point p); 
+  Point project(Point p) const;
 
   // Snap p to the nearest point in the surface
-  Point snap(Point p); 
+  Point snap(Point p) const;
 
 
   friend std::ostream& operator<<(std::ostream& os, const Surface& obj);

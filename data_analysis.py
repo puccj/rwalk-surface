@@ -1,4 +1,5 @@
 import numpy as np
+import argparse
 
 def geodesic_distance(a, b, radius=4.5, output='rad'):
     """
@@ -43,8 +44,8 @@ def geodesic_distance(a, b, radius=4.5, output='rad'):
         return angle
     else:
         raise ValueError("Invalid output type. Choose from 'rad', 'deg', or 'arc'.")
-    
-def geodesic_distances(points, starting_point=(0,0,4.5), radius=4.5, output='rad'):
+
+def geodesic_distances(points, starting_point=(9.5, 5, 5), radius=4.5, output='rad'):
     """
     Compute geodesic distances from a starting point to multiple points on a sphere (vectorized).
 
@@ -108,10 +109,20 @@ def test_geodesic_distance():
     print(f"variance time: {time2:.4f} s")
     print(f"Max difference between methods: {np.max(np.abs(np.array(distances1) - distances2)):.30f}")
 
-def variance(final_positions, starting_point=(0,0,4.5), radius=4.5):
+def variance(final_positions, starting_point=(9.5, 5, 5), radius=4.5):
     """
     Compute the variance of geodesic distances from a starting point to multiple final positions on a sphere.
     """
     angles = geodesic_distances(final_positions, starting_point, radius=radius, output='rad')
     var = np.mean(angles**2)
     return var
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Analyze random walk positions calculating their variance wrt a starting point.")
+    parser.add_argument("input_positions", type=str, help="Input file with positions.")
+    parser.add_argument("-s", "--starting_point", required=False, type=float, default=(9.5, 5, 5), nargs=3, help="Starting point coordinates (x, y, z).")
+    args = parser.parse_args()
+
+    positions = np.loadtxt(args.input_positions)
+    var = variance(positions, starting_point=args.starting_point)
+    print(f"Variance of final positions: {var:.4f}")
